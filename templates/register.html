@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户注册 - 面部识别签到系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>👤 用户注册</h1>
+            <p class="subtitle">采集人脸信息，完成系统注册</p>
+        </header>
+        
+        <nav class="navigation">
+            <a href="/" class="nav-item">首页</a>
+            <a href="/register" class="nav-item active">用户注册</a>
+            <a href="/checkin" class="nav-item">签到打卡</a>
+            <a href="/records" class="nav-item">签到记录</a>
+        </nav>
+        
+        <main class="main-content">
+            <div class="register-container">
+                <div class="camera-section">
+                    <h3>摄像头预览</h3>
+                    <video id="video" width="640" height="480" autoplay></video>
+                    <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+                    <div class="camera-controls">
+                        <button id="captureBtn" class="btn btn-primary">📷 拍照</button>
+                        <button id="retakeBtn" class="btn btn-secondary" style="display:none;">🔄 重拍</button>
+                    </div>
+                    <div id="cameraStatus" class="status-message"></div>
+                </div>
+                
+                <div class="form-section">
+                    <h3>用户信息</h3>
+                    <form id="registerForm">
+                        <div class="form-group">
+                            <label for="name">姓名：</label>
+                            <input type="text" id="name" name="name" required placeholder="请输入姓名">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="employeeId">学号/工号：</label>
+                            <input type="text" id="employeeId" name="employeeId" required placeholder="请输入学号或工号">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>预览照片：</label>
+                            <div id="photoPreview" class="photo-preview">
+                                <p class="hint">请先拍照</p>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success btn-large">✅ 提交注册</button>
+                    </form>
+                    
+                    <div id="message" class="message"></div>
+                </div>
+            </div>
+            
+            <div class="tips-section">
+                <h4>📝 注册提示</h4>
+                <ul>
+                    <li>请在光线充足的环境下拍照</li>
+                    <li>拍照时请正面面对摄像头</li>
+                    <li>确保画面中只有您一个人</li>
+                    <li>保持面部清晰，不要被遮挡</li>
+                </ul>
+            </div>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 面部识别签到系统</p>
+        </footer>
+    </div>
+    
+    <script src="/static/js/register.js"></script>
+</body>
+</html>
