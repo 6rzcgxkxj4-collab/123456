@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>签到打卡 - 面部识别签到系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>✅ 签到打卡</h1>
+            <p class="subtitle">面对摄像头，自动识别并签到</p>
+        </header>
+        
+        <nav class="navigation">
+            <a href="/" class="nav-item">首页</a>
+            <a href="/register" class="nav-item">用户注册</a>
+            <a href="/checkin" class="nav-item active">签到打卡</a>
+            <a href="/records" class="nav-item">签到记录</a>
+        </nav>
+        
+        <main class="main-content">
+            <div class="checkin-container">
+                <div class="camera-section">
+                    <h3>摄像头预览</h3>
+                    <video id="video" width="640" height="480" autoplay></video>
+                    <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+                    
+                    <div class="camera-controls">
+                        <button id="checkinBtn" class="btn btn-success btn-large">✅ 开始签到</button>
+                    </div>
+                    
+                    <div id="status" class="status-message"></div>
+                </div>
+                
+                <div class="result-section">
+                    <h3>签到结果</h3>
+                    <div id="result" class="result-display">
+                        <p class="hint">等待签到...</p>
+                    </div>
+                    
+                    <div id="userInfo" class="user-info" style="display:none;">
+                        <h4>用户信息</h4>
+                        <p><strong>姓名：</strong><span id="userName"></span></p>
+                        <p><strong>学号/工号：</strong><span id="userEmployeeId"></span></p>
+                        <p><strong>签到时间：</strong><span id="checkinTime"></span></p>
+                        <p><strong>识别置信度：</strong><span id="confidence"></span></p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="today-records">
+                <h3>📋 今日签到记录</h3>
+                <div id="todayRecordsList">
+                    <p class="hint">加载中...</p>
+                </div>
+            </div>
+            
+            <div class="tips-section">
+                <h4>💡 签到提示</h4>
+                <ul>
+                    <li>确保您已在系统中注册</li>
+                    <li>请正面面对摄像头</li>
+                    <li>保持面部清晰可见</li>
+                    <li>光线充足有助于提高识别准确率</li>
+                </ul>
+            </div>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 面部识别签到系统</p>
+        </footer>
+    </div>
+    
+    <script src="/static/js/checkin.js"></script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>签到记录 - 面部识别签到系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 签到记录</h1>
+            <p class="subtitle">查看历史签到记录</p>
+        </header>
+        
+        <nav class="navigation">
+            <a href="/" class="nav-item">首页</a>
+            <a href="/register" class="nav-item">用户注册</a>
+            <a href="/checkin" class="nav-item">签到打卡</a>
+            <a href="/records" class="nav-item active">签到记录</a>
+        </nav>
+        
+        <main class="main-content">
+            <div class="records-header">
+                <h2>签到记录列表</h2>
+                <div class="filter-controls">
+                    <button id="todayBtn" class="btn btn-primary">今日记录</button>
+                    <button id="allBtn" class="btn btn-secondary">全部记录</button>
+                    <button id="refreshBtn" class="btn btn-secondary">🔄 刷新</button>
+                </div>
+            </div>
+            
+            <div class="statistics">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalRecords">0</div>
+                    <div class="stat-label">总签到次数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="todayRecords">0</div>
+                    <div class="stat-label">今日签到</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalUsers">0</div>
+                    <div class="stat-label">注册用户</div>
+                </div>
+            </div>
+            
+            <div class="records-table-container">
+                <table class="records-table" id="recordsTable">
+                    <thead>
+                        <tr>
+                            <th>序号</th>
+                            <th>姓名</th>
+                            <th>学号/工号</th>
+                            <th>签到时间</th>
+                            <th>置信度</th>
+                            <th>地点</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordsBody">
+                        <tr>
+                            <td colspan="6" class="loading">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div id="message" class="message"></div>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 面部识别签到系统</p>
+        </footer>
+    </div>
+    
+    <script src="/static/js/records.js"></script>
+</body>
+</html>

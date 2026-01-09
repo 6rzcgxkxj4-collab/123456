@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>面部识别签到系统 - 首页</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎯 面部识别自动签到系统</h1>
+            <p class="subtitle">基于TensorFlow Serving的深度学习解决方案</p>
+        </header>
+        
+        <nav class="navigation">
+            <a href="/" class="nav-item active">首页</a>
+            <a href="/register" class="nav-item">用户注册</a>
+            <a href="/checkin" class="nav-item">签到打卡</a>
+            <a href="/records" class="nav-item">签到记录</a>
+        </nav>
+        
+        <main class="main-content">
+            <div class="welcome-section">
+                <h2>欢迎使用面部识别签到系统</h2>
+                <p>本系统采用先进的深度学习技术，实现快速、准确的人脸识别签到功能</p>
+            </div>
+            
+            <div class="feature-cards">
+                <div class="feature-card">
+                    <div class="icon">👤</div>
+                    <h3>用户注册</h3>
+                    <p>通过摄像头采集人脸信息，快速完成注册</p>
+                    <a href="/register" class="btn btn-primary">立即注册</a>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="icon">✅</div>
+                    <h3>快速签到</h3>
+                    <p>人脸识别自动签到，无需手动操作</p>
+                    <a href="/checkin" class="btn btn-primary">开始签到</a>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="icon">📊</div>
+                    <h3>记录查询</h3>
+                    <p>查看历史签到记录，统计考勤数据</p>
+                    <a href="/records" class="btn btn-primary">查看记录</a>
+                </div>
+            </div>
+            
+            <div class="info-section">
+                <h3>系统特点</h3>
+                <ul class="feature-list">
+                    <li>✨ 基于深度学习的高精度人脸识别</li>
+                    <li>⚡ TensorFlow Serving高性能模型推理</li>
+                    <li>🎨 简洁友好的Web界面</li>
+                    <li>📱 支持实时摄像头预览</li>
+                    <li>💾 完整的用户和签到记录管理</li>
+                    <li>🔒 安全可靠的数据存储</li>
+                </ul>
+            </div>
+            
+            <div class="instructions">
+                <h3>使用说明</h3>
+                <ol>
+                    <li><strong>首次使用</strong>：请先在"用户注册"页面注册您的人脸信息</li>
+                    <li><strong>日常签到</strong>：访问"签到打卡"页面，面对摄像头即可自动识别并签到</li>
+                    <li><strong>查看记录</strong>：在"签到记录"页面查看您的考勤历史</li>
+                </ol>
+            </div>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 面部识别签到系统 | 毕业设计项目</p>
+        </footer>
+    </div>
+</body>
+</html>

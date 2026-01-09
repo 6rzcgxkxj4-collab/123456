@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  tensorflow-serving:
+    build: .
+    ports:
+      - "8500:8500"
+      - "8501:8501"
+    volumes:
+      - ./models:/models
+    environment:
+      - MODEL_NAME=face_recognition
+    restart: unless-stopped
+    
+  flask-app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      - ../uploads:/app/uploads
+      - ../attendance.db:/app/attendance.db
+    environment:
+      - USE_TF_SERVING=true
+      - TF_SERVING_URL=http://tensorflow-serving:8501
+    depends_on:
+      - tensorflow-serving
+    restart: unless-stopped
