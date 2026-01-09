@@ -1,0 +1,17 @@
+# TensorFlow Serving for Face Recognition Model
+FROM tensorflow/serving:2.11.0
+
+# Copy model to the container
+# Note: You need to train and export your FaceNet model first
+# The model should be exported in SavedModel format
+
+# Set model name
+ENV MODEL_NAME=face_recognition
+
+# Expose ports
+# 8500: gRPC port
+# 8501: REST API port
+EXPOSE 8500 8501
+
+# Command to run TensorFlow Serving
+CMD ["--model_config_file=/models/models.config"]
