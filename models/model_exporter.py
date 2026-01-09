@@ -35,12 +35,10 @@ class ModelExporter:
             encoding1, encoding2 = inputs
             return tf.sqrt(tf.reduce_sum(tf.square(encoding1 - encoding2), axis=1, keepdims=True))
         
-        distance = tf.keras.layers.Lambda(euclidean_distance)([input_encoding1, input_encoding2])
+        # 直接输出距离值
+        distance = tf.keras.layers.Lambda(euclidean_distance, name='distance')([input_encoding1, input_encoding2])
         
-        # 输出层：距离值
-        output = tf.keras.layers.Dense(1, activation='linear', name='distance')(distance)
-        
-        model = tf.keras.Model(inputs=[input_encoding1, input_encoding2], outputs=output)
+        model = tf.keras.Model(inputs=[input_encoding1, input_encoding2], outputs=distance)
         
         return model
     

@@ -34,9 +34,18 @@ face_encoder = FaceEncoder()
 def base64_to_image(base64_string):
     """将base64字符串转换为OpenCV图像"""
     try:
+        # 验证输入
+        if not base64_string or not isinstance(base64_string, str):
+            return None
+        
         # 移除data:image/...;base64,前缀
         if ',' in base64_string:
             base64_string = base64_string.split(',')[1]
+        
+        # 限制大小 (最大10MB)
+        if len(base64_string) > 10 * 1024 * 1024:
+            print("图像数据过大")
+            return None
         
         # 解码
         img_data = base64.b64decode(base64_string)

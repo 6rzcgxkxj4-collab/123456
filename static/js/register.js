@@ -94,10 +94,12 @@ registerForm.addEventListener('submit', async (e) => {
         let data = await response.json();
         
         if (data.success) {
-            showMessage('✅ 注册成功！', 'success');
+            showMessage('✅ 注册成功！3秒后自动跳转到签到页面...', 'success');
             // 3秒后跳转到签到页面
             setTimeout(() => {
-                window.location.href = '/checkin';
+                if (confirm('注册成功！是否前往签到页面？')) {
+                    window.location.href = '/checkin';
+                }
             }, 3000);
         } else {
             showMessage('❌ ' + data.message, 'error');
