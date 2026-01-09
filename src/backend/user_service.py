@@ -14,7 +14,7 @@ from config.config import config
 from src.backend.db_service import db_service
 from src.backend.tf_serving_client import tf_serving_client
 from src.models.database import User, FaceEncoding
-from src.utils.face_utils import face_processor, calculate_distance
+from src.utils.face_utils import face_processor, calculate_distance, distance_to_confidence
 
 logger = logging.getLogger(__name__)
 
@@ -288,7 +288,7 @@ class UserService:
                         best_match = user
             
             if best_match and best_distance < threshold:
-                confidence = 1.0 / (1.0 + best_distance)
+                confidence = distance_to_confidence(best_distance, threshold)
                 return best_match, confidence
             
             return None

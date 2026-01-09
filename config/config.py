@@ -3,7 +3,22 @@ Configuration settings for the Face Recognition Attendance System.
 """
 
 import os
-from dataclasses import dataclass
+import secrets
+import warnings
+from dataclasses import dataclass, field
+
+
+def _get_secret_key() -> str:
+    """Get secret key from environment or generate a random one with warning."""
+    secret_key = os.getenv("SECRET_KEY")
+    if not secret_key:
+        warnings.warn(
+            "SECRET_KEY environment variable not set. Using a randomly generated key. "
+            "This is not suitable for production. Please set a secure SECRET_KEY.",
+            UserWarning
+        )
+        secret_key = secrets.token_hex(32)
+    return secret_key
 
 
 @dataclass
@@ -35,8 +50,11 @@ class Config:
     UPLOAD_FOLDER: str = os.getenv("UPLOAD_FOLDER", "uploads")
     FACE_IMAGES_FOLDER: str = os.getenv("FACE_IMAGES_FOLDER", "face_images")
     
-    # Secret key for session
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
+    # Maximum upload size (5MB default, configurable)
+    MAX_CONTENT_LENGTH: int = int(os.getenv("MAX_CONTENT_LENGTH", str(5 * 1024 * 1024)))
+    
+    # Secret key for session (auto-generated if not set, with warning)
+    SECRET_KEY: str = field(default_factory=_get_secret_key)
 
 
 # Create a default config instance

@@ -6,7 +6,7 @@ import base64
 import io
 import logging
 import os
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 
 import cv2
 import numpy as np
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__, static_folder='../../src/frontend/static', template_folder='../../src/frontend/templates')
 app.config['SECRET_KEY'] = config.SECRET_KEY
 app.config['UPLOAD_FOLDER'] = config.UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['MAX_CONTENT_LENGTH'] = config.MAX_CONTENT_LENGTH  # Configurable, default 5MB
 
 # Enable CORS
 CORS(app)
@@ -44,25 +44,44 @@ os.makedirs(config.FACE_IMAGES_FOLDER, exist_ok=True)
 
 
 def decode_image(image_data: str) -> np.ndarray:
-    """Decode base64 image data to numpy array."""
-    # Remove data URL prefix if present
-    if ',' in image_data:
-        image_data = image_data.split(',')[1]
+    """
+    Decode base64 image data to numpy array.
     
-    # Decode base64
-    image_bytes = base64.b64decode(image_data)
+    Args:
+        image_data: Base64-encoded image string, optionally with data URL prefix.
     
-    # Convert to numpy array
-    nparr = np.frombuffer(image_bytes, np.uint8)
-    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    Returns:
+        Decoded image as numpy array, or None if decoding fails.
     
-    return image
+    Raises:
+        ValueError: If the base64 data is invalid.
+    """
+    try:
+        # Remove data URL prefix if present
+        if ',' in image_data:
+            image_data = image_data.split(',')[1]
+        
+        # Decode base64
+        image_bytes = base64.b64decode(image_data)
+        
+        # Convert to numpy array
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        if image is None:
+            logger.error("Failed to decode image: cv2.imdecode returned None")
+            return None
+        
+        return image
+    except (base64.binascii.Error, ValueError) as e:
+        logger.error(f"Failed to decode base64 image data: {e}")
+        raise ValueError(f"Invalid base64 image data: {e}")
 
 
 def save_face_image(image: np.ndarray, user_id: int, filename: str = None) -> str:
     """Save face image and return the file path."""
     if filename is None:
-        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
         filename = f"user_{user_id}_{timestamp}.jpg"
     
     filepath = os.path.join(config.FACE_IMAGES_FOLDER, filename)
@@ -95,7 +114,7 @@ def health_check():
     """Health check endpoint."""
     return jsonify({
         'status': 'healthy',
-        'timestamp': datetime.utcnow().isoformat()
+        'timestamp': datetime.now(timezone.utc).isoformat()
     })
 
 

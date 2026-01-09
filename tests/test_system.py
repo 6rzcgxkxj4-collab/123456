@@ -54,6 +54,24 @@ class TestFaceUtils:
         similarity = calculate_cosine_similarity(embedding1, embedding2)
         assert abs(similarity) < 1e-6
     
+    def test_distance_to_confidence(self):
+        """Test distance to confidence conversion."""
+        from src.utils.face_utils import distance_to_confidence
+        
+        threshold = 0.6
+        
+        # At threshold, confidence should be ~0.5
+        conf_at_threshold = distance_to_confidence(threshold, threshold)
+        assert 0.45 < conf_at_threshold < 0.55
+        
+        # Below threshold (closer), confidence should be > 0.5
+        conf_close = distance_to_confidence(0.3, threshold)
+        assert conf_close > 0.5
+        
+        # Above threshold (farther), confidence should be < 0.5
+        conf_far = distance_to_confidence(1.0, threshold)
+        assert conf_far < 0.5
+    
     def test_is_same_person(self):
         """Test same person detection."""
         from src.utils.face_utils import is_same_person

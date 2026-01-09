@@ -89,11 +89,25 @@ class TFServingClient:
                 embedding = np.array(result["predictions"][0])
                 return embedding
             else:
-                logger.error(f"Unexpected response format: {result}")
+                logger.error(f"Unexpected response format from TensorFlow Serving: {result}")
                 return None
                 
+        except requests.exceptions.Timeout:
+            logger.error(f"Prediction request timed out after 30s. Model server at {url} may be overloaded.")
+            return None
+        except requests.exceptions.ConnectionError:
+            logger.error(f"Cannot connect to TensorFlow Serving at {self.base_url}. Ensure the server is running.")
+            return None
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                logger.error(f"Model '{self.model_name}' not found on TensorFlow Serving server.")
+            elif e.response.status_code == 503:
+                logger.error(f"TensorFlow Serving model '{self.model_name}' is not available (loading or error).")
+            else:
+                logger.error(f"HTTP error from TensorFlow Serving: {e.response.status_code} - {e}")
+            return None
         except requests.exceptions.RequestException as e:
-            logger.error(f"Prediction request failed: {e}")
+            logger.error(f"Unexpected network error during prediction: {e}")
             return None
         except (json.JSONDecodeError, KeyError) as e:
             logger.error(f"Failed to parse prediction response: {e}")

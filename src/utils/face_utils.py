@@ -178,6 +178,30 @@ def calculate_cosine_similarity(embedding1: np.ndarray, embedding2: np.ndarray) 
     return float(dot_product / (norm1 * norm2))
 
 
+def distance_to_confidence(distance: float, threshold: float) -> float:
+    """
+    Convert Euclidean distance to a confidence score.
+    
+    Uses a sigmoid-like function centered around the threshold to provide
+    meaningful confidence scores for face recognition. Scores above 0.5
+    indicate the distance is below the threshold (likely same person).
+    
+    Args:
+        distance: Euclidean distance between face embeddings.
+        threshold: Distance threshold for recognition.
+    
+    Returns:
+        Confidence score between 0 and 1.
+    """
+    # Use a sigmoid function centered at the threshold
+    # When distance = threshold, confidence = 0.5
+    # Lower distance = higher confidence (approaches 1)
+    # Higher distance = lower confidence (approaches 0)
+    steepness = 5.0 / threshold  # Adjust steepness based on threshold
+    confidence = 1.0 / (1.0 + np.exp(steepness * (distance - threshold)))
+    return float(confidence)
+
+
 def is_same_person(
     embedding1: np.ndarray,
     embedding2: np.ndarray,
@@ -198,8 +222,8 @@ def is_same_person(
         threshold = config.FACE_RECOGNITION_THRESHOLD
     
     distance = calculate_distance(embedding1, embedding2)
-    # Convert distance to confidence (inverse relationship)
-    confidence = 1.0 / (1.0 + distance)
+    # Convert distance to confidence using threshold-aware function
+    confidence = distance_to_confidence(distance, threshold)
     
     return distance < threshold, confidence
 
