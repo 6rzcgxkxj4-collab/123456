@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>签到 - 面部识别自动签到系统</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <a href="{{ url_for('index') }}" class="back-link">← 返回首页</a>
+            <h1>📷 面部识别签到</h1>
+        </header>
+        
+        <main class="checkin-main">
+            <div class="video-container">
+                <video id="video" autoplay playsinline></video>
+                <canvas id="canvas" style="display: none;"></canvas>
+                <div id="video-overlay" class="video-overlay">
+                    <p>点击按钮启动摄像头</p>
+                </div>
+            </div>
+            
+            <div class="checkin-controls">
+                <button id="startCamera" class="btn btn-primary">
+                    📹 启动摄像头
+                </button>
+                <button id="captureBtn" class="btn btn-success" disabled>
+                    📸 拍照签到
+                </button>
+                <button id="stopCamera" class="btn btn-secondary" disabled>
+                    ⏹️ 停止摄像头
+                </button>
+            </div>
+            
+            <div id="result" class="result-container" style="display: none;">
+                <div class="result-icon"></div>
+                <div class="result-message"></div>
+                <div class="result-details"></div>
+            </div>
+            
+            <div class="upload-section">
+                <h3>📁 或上传图片签到</h3>
+                <input type="file" id="imageUpload" accept="image/*" class="file-input">
+                <label for="imageUpload" class="file-label">选择图片</label>
+                <button id="uploadBtn" class="btn btn-primary" disabled>
+                    上传签到
+                </button>
+            </div>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 面部识别自动签到系统</p>
+        </footer>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/checkin.js') }}"></script>
+</body>
+</html>

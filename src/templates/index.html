@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>面部识别自动签到系统</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏢 面部识别自动签到系统</h1>
+            <p class="subtitle">基于深度学习和TensorFlow Serving的智能签到解决方案</p>
+        </header>
+        
+        <nav class="main-nav">
+            <a href="{{ url_for('checkin_page') }}" class="nav-card">
+                <span class="icon">📷</span>
+                <span class="title">签到</span>
+                <span class="desc">使用人脸识别进行签到</span>
+            </a>
+            <a href="{{ url_for('admin') }}" class="nav-card">
+                <span class="icon">⚙️</span>
+                <span class="title">管理</span>
+                <span class="desc">用户和签到记录管理</span>
+            </a>
+        </nav>
+        
+        <section class="features">
+            <h2>系统功能</h2>
+            <div class="feature-grid">
+                <div class="feature-item">
+                    <span class="feature-icon">🔍</span>
+                    <h3>人脸检测</h3>
+                    <p>基于深度学习的人脸检测算法，准确识别摄像头画面中的人脸</p>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🧠</span>
+                    <h3>人脸识别</h3>
+                    <p>使用128维面部特征向量进行人脸比对，识别精度高</p>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">⚡</span>
+                    <h3>TensorFlow Serving</h3>
+                    <p>支持TensorFlow Serving模型部署，实现高性能推理</p>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📊</span>
+                    <h3>签到统计</h3>
+                    <p>实时统计签到数据，生成考勤报表</p>
+                </div>
+            </div>
+        </section>
+        
+        <section class="tech-stack">
+            <h2>技术栈</h2>
+            <div class="tech-items">
+                <span class="tech-badge">Python</span>
+                <span class="tech-badge">TensorFlow</span>
+                <span class="tech-badge">TensorFlow Serving</span>
+                <span class="tech-badge">Flask</span>
+                <span class="tech-badge">OpenCV</span>
+                <span class="tech-badge">face_recognition</span>
+                <span class="tech-badge">SQLAlchemy</span>
+            </div>
+        </section>
+        
+        <footer>
+            <p>&copy; 2024 面部识别自动签到系统 - 毕业设计项目</p>
+        </footer>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
