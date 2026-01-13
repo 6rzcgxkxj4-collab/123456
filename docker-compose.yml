@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  # Flask Web Application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_CONFIG=production
+      - FLASK_HOST=0.0.0.0
+      - FLASK_PORT=5000
+      - DATABASE_URL=sqlite:///data/checkin.db
+      - TF_SERVING_HOST=tf-serving
+      - TF_SERVING_REST_PORT=8501
+      - TF_SERVING_GRPC_PORT=8500
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - tf-serving
+    restart: unless-stopped
+
+  # TensorFlow Serving
+  tf-serving:
+    image: tensorflow/serving:latest
+    ports:
+      - "8501:8501"
+      - "8500:8500"
+    volumes:
+      - ./models/face_recognition:/models/face_recognition
+    environment:
+      - MODEL_NAME=face_recognition
+    restart: unless-stopped
+
+volumes:
+  data:
