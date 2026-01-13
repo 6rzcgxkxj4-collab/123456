@@ -19,7 +19,7 @@ class User(UserMixin, db.Model):
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=True)
     department = db.Column(db.String(100), nullable=True)
-    face_encoding = db.Column(db.LargeBinary, nullable=True)  # Serialized numpy array
+    face_encoding = db.Column(db.LargeBinary, nullable=True)  # Pickle-serialized numpy array (128-dim float64)
     face_image_path = db.Column(db.String(255), nullable=True)
     is_admin = db.Column(db.Boolean, default=False)
     password_hash = db.Column(db.String(256), nullable=True)

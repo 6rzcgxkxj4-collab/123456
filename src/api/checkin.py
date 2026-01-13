@@ -246,14 +246,14 @@ def get_checkin_records():
             date_from = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
             query = query.filter(CheckIn.check_in_time >= date_from)
         except ValueError:
-            pass
+            return jsonify({'error': f'Invalid date_from format: {date_from}. Use ISO 8601 format.'}), 400
     
     if date_to:
         try:
             date_to = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
             query = query.filter(CheckIn.check_in_time <= date_to)
         except ValueError:
-            pass
+            return jsonify({'error': f'Invalid date_to format: {date_to}. Use ISO 8601 format.'}), 400
     
     pagination = query.order_by(CheckIn.check_in_time.desc()).paginate(
         page=page, per_page=per_page, error_out=False

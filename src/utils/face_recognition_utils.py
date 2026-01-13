@@ -282,12 +282,13 @@ def deserialize_encoding(data: bytes) -> np.ndarray:
     return pickle.loads(data)
 
 
-def preprocess_image(image: np.ndarray) -> np.ndarray:
+def preprocess_image(image: np.ndarray, is_bgr: bool = False) -> np.ndarray:
     """
     Preprocess an image for face recognition.
     
     Args:
         image: Image as numpy array
+        is_bgr: Whether the image is in BGR format (e.g., loaded from OpenCV)
         
     Returns:
         Preprocessed image in RGB format
@@ -296,10 +297,8 @@ def preprocess_image(image: np.ndarray) -> np.ndarray:
         # If cv2 not available, assume image is already RGB
         return image
     
-    # Convert BGR to RGB if needed (OpenCV loads as BGR)
-    if len(image.shape) == 3 and image.shape[2] == 3:
-        # Check if it appears to be BGR by checking red/blue channel distribution
-        # For simplicity, we'll assume it might be BGR and convert
+    # Convert BGR to RGB only if explicitly specified
+    if is_bgr and len(image.shape) == 3 and image.shape[2] == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     
     return image

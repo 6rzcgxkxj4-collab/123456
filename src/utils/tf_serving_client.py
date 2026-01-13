@@ -302,26 +302,37 @@ class FaceRecognitionTFServingClient(TFServingClient):
         
         return None
     
+    # Distance normalization factor for similarity calculation
+    # Face embeddings typically have distances in range [0, 2] for L2-normalized vectors
+    DISTANCE_NORMALIZATION_FACTOR = 2.0
+    
     def compare_faces(
         self,
         embedding1: np.ndarray,
         embedding2: np.ndarray
     ) -> float:
         """
-        Compare two face embeddings.
+        Compare two face embeddings using Euclidean distance.
         
         Args:
-            embedding1: First face embedding
-            embedding2: Second face embedding
+            embedding1: First face embedding (L2-normalized vector)
+            embedding2: Second face embedding (L2-normalized vector)
             
         Returns:
-            Similarity score (0.0 to 1.0)
+            Similarity score (0.0 to 1.0), where 1.0 means identical faces.
+            The conversion from distance to similarity uses the formula:
+            similarity = 1.0 - (distance / DISTANCE_NORMALIZATION_FACTOR)
+            
+        Note:
+            For L2-normalized face embeddings, the Euclidean distance ranges
+            from 0 (identical) to 2 (completely opposite). A typical threshold
+            for face matching is around 0.6 distance (0.7 similarity).
         """
         # Calculate Euclidean distance
         distance = np.linalg.norm(embedding1 - embedding2)
         
-        # Convert distance to similarity (using typical face recognition threshold)
-        # Distance of 0.6 is typically used as threshold
-        similarity = max(0.0, 1.0 - distance / 2.0)
+        # Convert distance to similarity score
+        # For L2-normalized vectors, max distance is 2.0
+        similarity = max(0.0, 1.0 - distance / self.DISTANCE_NORMALIZATION_FACTOR)
         
         return similarity

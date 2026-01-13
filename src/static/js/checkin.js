@@ -90,7 +90,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
             
             if (data.success) {
-                showResult(true, data.message, `置信度: ${(data.confidence * 100).toFixed(1)}%`);
+                const confidenceText = data.confidence !== undefined 
+                    ? `置信度: ${(data.confidence * 100).toFixed(1)}%` 
+                    : '';
+                showResult(true, data.message, confidenceText);
             } else {
                 showResult(false, data.message || '签到失败', data.error || '');
             }
@@ -128,7 +131,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
             
             if (data.success) {
-                showResult(true, data.message, `置信度: ${(data.confidence * 100).toFixed(1)}%`);
+                const confidenceText = data.confidence !== undefined 
+                    ? `置信度: ${(data.confidence * 100).toFixed(1)}%` 
+                    : '';
+                showResult(true, data.message, confidenceText);
             } else {
                 showResult(false, data.message || '签到失败', data.error || '');
             }
