@@ -1,0 +1,6 @@
+{
+  "sources": [
+    {"provider": "greenhouse", "board": "samsara", "company": "Samsara", "category": "工业物联网/B2B", "enabled": true},
+    {"provider": "greenhouse", "board": "formlabs", "company": "Formlabs", "category": "工业3D打印/B2B", "enabled": true}
+  ]
+}
