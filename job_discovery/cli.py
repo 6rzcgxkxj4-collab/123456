@@ -9,7 +9,7 @@ from .http import session
 from .sources import fetch, verify
 from .rules import evaluate
 from .model import canonical_url, fingerprint
-from .sheets import Sheets
+from .sheets import Sheets, WebAppError
 
 LOG = logging.getLogger(__name__)
 
@@ -18,9 +18,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--sources', default='config/sources.json')
     parser.add_argument('--output', default='reports/latest.json')
-    parser.add_argument('--sheets', action='store_true', help='Read-only Sheets preflight unless --write is supplied')
+    parser.add_argument('--sheets', action='store_true', help='Apps Script read-only preflight unless --write is supplied')
     parser.add_argument('--write', action='store_true')
-    parser.add_argument('--initialize-columns', action='store_true')
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
     if args.write and (not args.sheets or os.environ.get('ENABLE_SHEETS_WRITE') != 'true'):
@@ -64,19 +63,16 @@ def main():
     exit_code = 1 if failures else 0
     if args.sheets:
         try:
-            if failures and args.write:
+            if failures:
                 raise RuntimeError('Partial source failure: all sheet writes blocked for this run')
             sheet = Sheets()
-            missing = sheet.initialize(write=args.write and args.initialize_columns)
-            if missing and not (args.write and args.initialize_columns):
-                report['sheets'] = {'blocked': 'Missing automation columns', 'required_columns': missing}
-                exit_code = 2
-            else:
-                report['sheets'] = sheet.sync(matches, write=args.write, observed_keys=observed_keys, successful_sources=successful_sources)
+            report['sheets'] = sheet.sync(matches, write=args.write, observed_keys=observed_keys, successful_sources=successful_sources)
         except Exception as exc:
             # Credentials and server response bodies must never reach logs/artifacts.
             LOG.error('Sheets preflight/write failed (%s)', type(exc).__name__)
             report['sheets'] = {'error_type': type(exc).__name__}
+            if isinstance(exc, WebAppError):
+                report['sheets']['code'] = str(exc)
             exit_code = 2
     path = Path(args.output)
     path.parent.mkdir(parents=True, exist_ok=True)

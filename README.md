@@ -1,131 +1,199 @@
-# AI 求职岗位自动发现
+# 每日求职岗位发现：GitHub Actions + Apps Script
 
-Python 3.12、GitHub Actions、Google Sheets。第一版使用规则，无付费 OpenAI API。
-默认只生成测试报告，不访问或修改 Google Sheets，不替你申请或发送邮件。
+Python规则筛选招聘岗位，GitHub Actions每天执行，通过Google Apps Script Web App写入现有Google Sheets。
+**不需要Google Cloud信用卡、服务账号JSON或付费OpenAI API。** 默认测试模式，默认禁止正式写表。
 
-## 功能与实际边界
+## 当前功能与范围
 
-- 支持公开 Greenhouse、Lever、Ashby 接口。初始启用 Samsara、Formlabs 两个 Greenhouse board。
-- 每天重新查询清单中的企业职位，上海优先，其次深圳、重庆，兼顾苏州、无锡、杭州。
-- 按营销方向、地点、经验要求排除销售、高管、纯投流等；用展会、MarCom、渠道、国际营销经验生成理由。
-- 公司/职位/城市指纹、官方链接、ATS 来源 ID 三种方式去重。
-- Greenhouse/Lever 通过官方详情接口核实；Ashby 明确标注官方列表核实、详情页待核实。
-- 无法核实写待核实，官方列表不再出现只标待核实，不据此宣称关闭。永不删除历史岗位。
-- 薪资、发布日期不推测，更新时间不会冒充发布日期；总包、OTE、外币不推算为人民币固定年薪。
-- Lever 明确的人民币年度薪资上限不足30万时排除。其他薪资和固定部分需人工复核。
-- 企业成熟度、欧美/日企归属应在添加来源前人工确认；规则分不是录用概率。
-- 这是**企业清单监测**，不是全网搜索。初始覆盖很小，可能连续多天零匹配。
-- Workday 尚未实现，后续须逐企业核实公开查询方式和条款；不会绕过验证码、登录或访问限制。
+- Greenhouse、Lever、Ashby公开招聘接口适配器；初始配置Samsara、Formlabs两个Greenhouse board。
+- 每天北京时间09:17重新查询企业清单，筛选目标城市、营销职位和经验要求，排除销售、高管、纯投流等。
+- 上海优先，深圳、重庆其次，兼顾苏州、无锡、杭州；不从描述猜测办公地点。
+- 结合国际B2B、MarCom、展会、渠道及APAC经验生成匹配理由；规则分不是录用概率。
+- 使用官方来源ID、招聘链接、公司/职位/城市指纹去重。匹配到已有人工岗位只跳过，不自动接管。
+- 官方详情接口核实Greenhouse/Lever；Ashby明确标注列表核实、详情页待核实。
+- 薪资未公开为未知，不推测固定薪资或发布日期；更新时间不冒充发布日期。
+- 公开Lever人民币年薪上限低于30万会排除；总包、OTE、外币不折算为固定人民币年薪。
+- 从成功读取的官方列表消失，仅标待核实，不声称关闭，不删除历史岗位。
+- 不绕过验证码、登录、付费墙或访问限制，不自动申请或发邮件。
 
-职业依据：奈良女子大学硕士；Figaro Engineering Japan 2022-10 至2026-06 的国际B2B营销；
-OutIn 2026-06 至2026-10 日本/APAC渠道市场；中文母语、JLPT N1、TOEIC875。
-匹配理由覆盖国际展会、MarCom、网站、LinkedIn、渠道支持。语言硬要求和资历仍需人工确认。
-固定年薪目标35–40万、底线30万；未公开薪资的岗位保留复核，不能声称已满足底线。
+这是指定企业清单监测，初始覆盖很小，不是全网搜索；可能长期零匹配。Workday尚未实现。
+企业成熟度、欧美/日企归属、薪资构成、语言和资历要求需人工复核，不由程序编造。
+职业背景依据：奈良女子大学硕士；Figaro Engineering Japan 2022-10至2026-06国际B2B营销；
+OutIn 2026-06至2026-10日本/APAC渠道市场；中文母语、JLPT N1、TOEIC875。
+固定年薪目标35–40万、底线30万；未知薪资保留待确认，不代表已经符合底线。
 
-## 本地运行
+## 一、Google Apps Script：新建独立项目，不动Gmail同步项目
+
+**推荐使用新的独立Apps Script项目。** 仍然操作同一份表格，但与现有Gmail同步脚本、触发器、权限和入口完全隔离。
+无需打开Google Cloud Console或启用结算，使用Apps Script自带SpreadsheetApp服务和你的Google账号授权。
+
+1. 打开 [script.google.com](https://script.google.com/)，新建项目，命名如 `JobDiscoveryWriter`。
+2. 新增两个脚本文件，粘贴本仓库对应内容：
+   - `apps_script/JobDiscovery.gs`：签名校验、预览、去重、安全写入。
+   - `apps_script/WebAppEntry.gs`：唯一的 `doPost(e)` 入口。
+   新项目默认的空 `myFunction` 可以保留，无需改动任何Gmail文件。
+3. 在项目设置 → **脚本属性（Script properties）** 中新增：
+
+   | 属性名 | 值 |
+   | --- | --- |
+   | `JD_SHARED_SECRET` | 本地生成的至少32字符ASCII随机密钥 |
+   | `JD_ALLOW_WRITES` | `false` |
+
+   密钥可在可信本地终端生成：`python -c 'import secrets; print(secrets.token_urlsafe(32))'`。
+   不要发送到聊天、提交仓库、放到URL或执行日志中。同一密钥稍后放到GitHub Secret。
+4. 部署 → 新部署 → 类型选 **Web应用**：
+   - 执行身份：**我**（拥有目标表编辑权限的账号）。
+   - 访问权限：**任何人 / Anyone**，允许不登录Google的GitHub runner调用。
+   - 按Google提示授权你自己新建的脚本访问表格；复制部署的 `/exec` HTTPS URL。
+   - 不要使用 `/dev` URL，不要在URL后添加密钥或其他参数。
+5. 脚本固定打开下面的表格ID，并且只获取「岗位数据库」：
+   `1z-zzj5IWsQXTjDL7QV8OYF2_Do_NSJdslh39G2RVHds`。
+   不读取或修改「投递记录」「邮件事件」「求职面板」「筛选规则」。
+
+如果组织策略禁止匿名Web App，不能用“任何Google账号用户”代替：Actions会收到登录页。
+需要管理员允许该部署方式，否则此方案存在外部配置阻碍，程序不会绕过登录限制。
+Apps Script免费额度、执行时间和Spreadsheet配额仍适用；不保证永久无中断。
+
+### 已有Apps Script的Gmail功能如何保留
+
+本仓库没有访问或修改你现有的Apps Script项目。`JobDiscovery.gs`无Gmail调用，不创建触发器，
+不清理或修改无关脚本属性。优先部署到上面的独立项目，不要把整个Gmail项目替换成这些文件。
+
+如果坚持放在已有项目中，只新增 `JobDiscovery.gs`，先检查是否已有 `doPost`。
+若已经存在，**不要复制WebAppEntry.gs、不要定义第二个doPost、不要替换原入口**；改用独立项目。
+Apps Script同项目所有`.gs`共享全局作用域，文件独立不代表入口隔离。
+后续更新脚本代码后，部署 → 管理部署 → 编辑 → 选择新版本，才会更新 `/exec` 的线上代码。
+只修改脚本属性的开关或密钥不需要重新发布代码版本。
+
+## 二、GitHub配置：两个Secrets，正式写入前先测试
+
+在 [仓库Settings → Secrets and variables → Actions](https://github.com/6rzcgxkxj4-collab/123456/settings/secrets/actions) 新增：
+
+| GitHub Actions Secret | 值 |
+| --- | --- |
+| `APPS_SCRIPT_WEB_APP_URL` | 上一步的 `https://script.google.com/macros/s/.../exec` |
+| `APPS_SCRIPT_SHARED_SECRET` | 与 `JD_SHARED_SECRET` 完全相同的随机密钥 |
+
+无需服务账号凭证。旧的Google服务账号JSON Secret不再使用，可从仓库Secrets删除；如曾创建旧密钥，可在Google端撤销。
+**把旧的仓库变量 `ENABLE_SHEETS_WRITE` 删除或先设为 `false`**，尤其是从旧版迁移时。
+服务端 `JD_ALLOW_WRITES=false` 是独立门禁，默认阻止写入。
+
+### 先测试，再启用
+
+1. 仓库默认分支启用Actions。打开 [Discover jobs](https://github.com/6rzcgxkxj4-collab/123456/actions/workflows/discover.yml)，手动运行 `mode=dry-run`。
+   此模式只测试招聘发现，不请求Web App、不读写表格。
+2. 下载Artifact中的 `latest.json`，核对真实招聘源数量、候选、核实状态、失败项。
+   任一招聘源失败都不能当作“没有岗位”。
+3. 再手动运行 `mode=preflight`。这会向Web App发送签名请求，读取目标表并计算新增/更新/跳过数量，
+   **不写任何表格单元格或备注**；只在脚本属性中记录防重放及短期预览凭据。
+4. 检查Actions日志和Artifact：`sheets` 应包含 `new_rows`、`cell_updates`、`metadata_updates`（备注更新数）、`skipped`、`written:false`，
+   不应出现 `error_type`。零候选且零更新只能验证连接和预检，不能证明真实写入已成功。
+5. 确认测试结果正确、需要正式启用时：
+   - Apps Script脚本属性 `JD_ALLOW_WRITES` 改为 `true`。
+   - GitHub **Variables** 新增/修改 `ENABLE_SHEETS_WRITE=true`（不是Secret）。
+   - 手动运行 `mode=write`；程序先做同批数据的服务端preview，再携一次性预览凭据提交。
+   - 核对目标表新增记录及未受影响的人工数据，确认本次实际效果。
+6. 之后每天北京时间 **09:17** 自动运行；只有GitHub开关开启才请求正式同步，否则schedule只做dry-run。
+   push始终dry-run，PR只跑测试，不接触凭证。调度可能延迟，私有仓库注意Actions额度。
+
+停止写入：GitHub变量设false，或者Apps Script `JD_ALLOW_WRITES=false`，任一开关关闭就不会正式写入。
+停止所有定时任务：Actions中Disable workflow。公开仓库长期无活动可能被GitHub暂停调度，请每月检查。
+失败查看Actions默认通知和Artifact；报告保留30天。工作流文件存在不等于云端已经成功执行。
+
+## 三、保留17列、人工数据与Gmail同步
+
+现有表头保持不变，可调整顺序，但不能重复或缺失：
+
+```text
+岗位ID 公司 岗位名称 城市 企业类型 岗位方向 固定年薪(万元) 薪资公开状态 匹配度 招聘状态 申请状态 岗位链接 来源 发现日期 最后核实 匹配理由 待确认问题
+```
+
+新版本**不增加列、不增加工作表**。将自动化来源ID与快照存入自动新增记录「岗位ID」单元格的备注，
+以 `JOB_DISCOVERY_V1` 开头。不要手动清空这些系统备注；损坏或替换备注会使该行成为只读人工记录。
+既有人工备注不会覆盖。更改岗位ID/公司/职位/城市/链接等身份字段后，整行停止自动接管。
+
+如果旧版本已经生成「自动化来源ID」「自动化快照」两列，本版可在空备注的旧自动记录上读取并迁移快照到备注，
+**不会更新、清空或删除旧两列**。不需要手动删列，也不强制增加这两列。
+
+- 已有人工岗位：不更新，匹配则跳过，不重复新增。
+- 自动岗位：只更新仍等于上次快照的字段；发现人工修改后永久释放该字段。
+- 「申请状态」永不自动更新；新行留空，Gmail/人工填写的状态保持原样。
+- 发现日期与岗位ID不随日常更新变化；核实失败不清空上次成功核实时间。
+- 备注绑定的身份不一致、重复行冲突、快照损坏：安全跳过，不清表重建。
+- 所有写入使用RichText字面文本，`=...` 等招聘文本不会被解释为公式。
+
+服务器使用ScriptLock锁和预览快照检测，提交前重新读取表格，逐字段更新前检查旧值、备注前检查旧备注。
+Apps Script锁无法锁住人工或**另一个项目**的Gmail同步进程；Sheets不支持比较交换事务。
+请避免Gmail同步、人工编辑与09:17写入窗口重叠，不要只排序部分列（备注会与数据错位）。
+不能保证检查与提交之间的并发修改绝对零覆盖，也不能保证多次Spreadsheet操作全部原子提交。
+异常可能发生部分写入：不会重新执行同一请求；下一轮重新读取、去重，冲突字段宁可停止接管。
+
+## 四、请求协议与安全边界
+
+Apps Script Web App事件不提供常规自定义请求头，因此不使用Authorization或X-API-Key鉴权。
+通过HTTPS POST，`Content-Type: text/plain; charset=utf-8`，请求体为JSON信封：
+
+```text
+version, timestamp, request_id, payload_b64, signature
+```
+
+`payload_b64` 是UTF-8 JSON字节的标准Base64（用于精确定义签名字节，**不是加密**）。
+签名为 `HMAC-SHA256(shared_secret, "v1\\n" + timestamp + "\\n" + request_id + "\\n" + payload_b64)` 的小写hex；
+这里的分隔符代表实际换行。密钥本身不会传输，不放URL、不放请求头、不记录日志。
+
+服务端要求时间戳在±300秒内、常量时间比较签名、ScriptLock下持久化nonce到ScriptProperties。
+nonce保存660秒，不依赖可能被提前淘汰的CacheService。重复相同请求返回原结果，不重复执行；
+相同ID不同签名拒绝；已记录处理中但无结果则拒绝重执行。客户端重试使用完全相同的签名信封。
+普通失败不显示原始服务端异常、请求体或部署URL，避免凭证泄漏。
+
+preview生成15分钟内有效的一次性凭据，绑定整个批次和目标表快照。正式写入还要求服务端开关，
+数据或表格变化、凭据过期/复用都会拒绝。每次自动写入都会先做新的preview。
+最多每批200个候选、50,000个观测ID、1.5MB请求体、20,000行目标表；超限失败，不静默截断。
+
+ContentService通常HTTP200也会返回业务错误，客户端必须验证JSON的`ok`和请求ID。
+ContentService返回302/303时，仅跟随到 `script.googleusercontent.com` 的HTTPS GET，
+不会把签名POST体发送到重定向目标；登录页、其他重定向、非JSON不算成功。
+Web App匿名入口仍可能受恶意流量耗尽Apps Script配额；共享密钥保护写权限，不能消除平台配额风险。
+
+## 五、本地开发、测试与扩展
 
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
 python -m pytest -q
+node --test tests/apps_script.test.cjs
 python -m job_discovery.cli
 ```
 
-检查 `reports/latest.json` 的来源数量、排除原因、候选、核实结果和来源失败。
-退出码0表示流程成功（不保证有匹配）；1为来源失败；2为写入门禁或表格预检失败。
-模拟测试通过不代表真实招聘接口、Sheets授权或Actions运行通过。
+Apps Script JavaScript在Node测试中使用Google服务模拟器。测试覆盖Python/JS签名互通、鉴权、重放、预览门禁、
+去重、人工修改保护、旧列迁移、Gmail无关属性保护、17列结构和公式字面值。
+**模拟器通过不代表真实Apps Script授权、部署、重定向和表格写入已经验证。** 必须做上面的真实preflight和首次write。
+真实联调需要你自行部署Web App并配置Secrets，本仓库不能替你完成Google账号授权。
 
-## 现有表格的保护机制
-
-固定表格ID：`1z-zzj5IWsQXTjDL7QV8OYF2_Do_NSJdslh39G2RVHds`。
-固定工作表：`岗位数据库`。所有读取和写入范围只指向此表，不修改其他工作表。
-要求已有以下17列，可调整顺序，不允许重复或缺失：
-
-```text
-岗位ID 公司 岗位名称 城市 企业类型 岗位方向 固定年薪(万元) 薪资公开状态 匹配度 招聘状态 申请状态 岗位链接 来源 发现日期 最后核实 匹配理由 待确认问题
-```
-
-首次正式运行显式选择 `initialize_columns=true`，在目标表右侧增加两个持久化列：
-
-- `自动化来源ID`：ATS标识。
-- `自动化快照`：上次自动写入值，辨认人工修改。
-
-不清空、不重建表；若新列区域已有数据，初始化拒绝执行。
-不自动收养人工录入行；匹配到人工记录则跳过，不追加重复岗位。
-「申请状态」新增时留空，之后永不写入。歧义重复行、损坏快照安全跳过。
-已有自动记录仅更新仍与快照一致的字段；发现人工修改后永久释放对应字段。
-发现日期和岗位ID不随日常更新变化。核实失败不抹除上次成功核实时间。
-所有值以RAW提交，网站文本不会当作表格公式执行。
-
-Actions有单写入者锁，写入前重新读取目标表检查变化。
-**Sheets没有比较交换事务**，检查和提交间仍存在短暂竞态。正式运行期间请勿同时编辑目标表，
-也不要让其他程序写入同一目标；不能保证并发人工编辑时绝对零覆盖。
-服务账号获授权的是整份文件；单tab限制由代码实现，并非Google的单tab授权机制。
-如需更强隔离，可另行保护其他tab（程序不会自动修改这些tab）。
-
-读请求采用指数退避重试，429尊重Retry-After；append写请求不盲目重试，避免响应丢失导致重复追加。
-重新运行时先读取现有记录再去重。任一来源失败会阻止本轮全部表格写入。
-
-## Google凭证：只存GitHub Secrets
-
-1. Google Cloud建立项目，启用 **Google Sheets API**。
-2. 建立专用服务账号并生成JSON密钥，不需要授予项目Owner/Editor角色。
-3. 将现有表格共享给JSON中的 `client_email`，授予文件编辑权限。
-4. 仓库 → Settings → Secrets and variables → Actions → **Secrets** → New repository secret。
-   名称：`GOOGLE_SERVICE_ACCOUNT_JSON`；值：完整JSON。不要发到聊天、输出到日志或提交到仓库。
-5. 如需本地预检，安全注入同名进程环境变量，运行：
+安全注入 `APPS_SCRIPT_WEB_APP_URL` 和 `APPS_SCRIPT_SHARED_SECRET` 后，本地预检：
 
 ```bash
 python -m job_discovery.cli --sheets
 ```
 
-预检只读；缺少两个自动化列时报告待初始化，退出2，不会改表。
-不需要Drive API或模型密钥；密钥轮换在Google Cloud和GitHub Secrets完成。
+输出 `reports/latest.json`。退出码0表示流程成功，不保证有岗位；1为来源失败；2为Web App/写入门禁失败。
+错误码参考：
 
-## GitHub Actions部署和启用顺序
+| code | 检查 |
+| --- | --- |
+| `auth_failed` | 两处密钥是否相同且至少32字符，runner时钟是否正确 |
+| `web_app_non_json` / `unsafe_redirect` | 是否为/exec、访问权限是否为Anyone，是否部署了新版本 |
+| `writes_disabled` | Apps Script与GitHub两个开关 |
+| `invalid_headers` | 17列表头是否完整，是否有重复/无标题数据列 |
+| `sheet_changed` | 暂停同期人工/Gmail写入，重新预检 |
+| `preview_required` / `preview_expired` | 不复用旧凭据，重新跑完整流程 |
+| `request_in_progress` | 上次可能中断，先检查目标表；下一轮重新读取再去重 |
+| `capacity` / `internal_error` | 查看Apps Script执行状态和配额，勿输出密钥或完整请求体 |
 
-工作流为 `.github/workflows/discover.yml`，测试成功后运行发现任务。
-
-1. 文件需推入默认分支，仓库启用Actions。私有仓库关注Actions免费额度和Artifact配额。
-2. Actions → **Discover jobs** → Run workflow，选 `mode=dry-run`。
-3. 下载 `job-discovery-...` Artifact，审查真实来源数量、候选和失败项；源失败不等于没有岗位。
-4. 配好Secret后，运行 `mode=preflight`，核对授权及现有表头；此步骤不写入。
-5. 结果确认正确后，在 Settings → Secrets and variables → Actions → **Variables** 添加
-   `ENABLE_SHEETS_WRITE=true`。
-6. 首次手动运行 `mode=write`、`initialize_columns=true`，增加两列并同步候选。
-7. 此后每天**北京时间09:17**运行。变量未启用则定时仅测试运行，GitHub调度可能延迟。
-
-写入同时要求 `--write --sheets` 和 `ENABLE_SHEETS_WRITE=true`。
-push触发始终dry-run，PR只测试，不接触凭证；只有手动write和启用后的schedule会写入。
-停止自动写入：删除变量或设为false；停止所有任务：Actions中Disable workflow。
-失败通过Actions默认通知查看；报告保留30天，不含历史表格内容或凭证。
-公开仓库长期无活动时GitHub可能暂停定时工作流；请每月检查Actions并按需重新启用。
-不依赖个人电脑，但不能承诺云调度永不中断。
-
-## 来源扩展和未来AI
-
-编辑 `config/sources.json`，添加前确认企业官网确实链接对应ATS board，再dry-run。
-
-```json
-{"sources": [{"provider": "lever", "board": "official-board-token", "company": "企业真实名称", "enabled": true}]}
-```
-
-示例token不是有效源。provider支持greenhouse、lever、ashby，board必须是官方ATS标识，不是搜索词。
-错误源报错，不回退到绕过访问限制的爬虫。两个初始源在当前云环境尚未成功联网验证，
-请以首次GitHub dry-run响应为准。逐步补充在目标城市招聘的工业/制造/B2B欧美和日企官方源。
-
-`job_discovery/rules.py:evaluate(job)` 是可替换匹配接口。未来AI只用于排序和理由，
-不改变来源事实、薪资、核实结论、去重键和写入保护。当前不调用任何模型服务。
-
-## 排障与已知限制
-
-- 403、429、超时、接口变更：查看source_failures，不绕过限制。
-- Google401/403：检查Sheets API、密钥、文件共享及Secret，不打印私钥。
-- 表头重复/缺失、快照损坏：停止写入或跳过冲突，人工确认后处理，不会清表重建。
-- 固定年薪列在未确认固定构成时保持未知；文本薪资提取尚未实现。
-- 两个源不能代表中国市场全部目标岗位。发布日期缺失时保持未知（记录在待确认问题中）。
-- 不删除过期记录，不在未经证实时标关闭，不自动申请岗位。
-- reports、本地虚拟环境和常见凭证文件被忽略；其他命名的密钥也不要放入仓库。
-- 云环境联调需允许 `boards-api.greenhouse.io`、`api.lever.co`、`api.ashbyhq.com`、
-  `sheets.googleapis.com`、`oauth2.googleapis.com` 出站。此配置不等同于GitHub runner网络。
+编辑 `config/sources.json` 扩充真实企业官方board，支持greenhouse、lever、ashby。
+先从企业官网核对其ATS归属，再dry-run；初始两个源在先前受限环境中未成功联网验证，不把源失败称作零岗位。
+`rules.py:evaluate(job)` 是未来AI匹配扩展点；AI只能辅助排序与理由，不得更改来源事实或安全写入逻辑。
+`reports/`、虚拟环境及常见凭证文件已忽略；不要提交其他命名的密钥文件。
+云环境如需联调，需允许 `script.google.com`、`script.googleusercontent.com` 和所用招聘API出站；
+GitHub托管runner的网络配置与此开发环境分别独立。

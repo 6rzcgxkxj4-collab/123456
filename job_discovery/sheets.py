@@ -1,53 +1,21 @@
-"""Restricted single-tab writes, RAW values, no deletion and no bulk replacement.
-
-The API has no compare-and-swap: avoid editing the tab during a write run.
-Detected human changes are permanently released from automated ownership.
-"""
+"""Signed Apps Script transport. No Google Cloud account or service account."""
+import base64
+import hashlib
+import hmac
 import json
 import os
+import re
 import time
-from email.utils import parsedate_to_datetime
+import uuid
+from datetime import datetime
 from zoneinfo import ZoneInfo
-from datetime import datetime, timezone
-import google.auth.transport.requests
-from google.oauth2 import service_account
-from .model import canonical_url, fingerprint
+from urllib.parse import urlsplit
+import requests
+from .model import fingerprint
 
 SHEET_ID = '1z-zzj5IWsQXTjDL7QV8OYF2_Do_NSJdslh39G2RVHds'
 TAB = '岗位数据库'
 HEADERS = ['岗位ID', '公司', '岗位名称', '城市', '企业类型', '岗位方向', '固定年薪(万元)', '薪资公开状态', '匹配度', '招聘状态', '申请状态', '岗位链接', '来源', '发现日期', '最后核实', '匹配理由', '待确认问题']
-META = ['自动化来源ID', '自动化快照']
-
-
-def col(index):
-    result = ''
-    while index:
-        index, n = divmod(index - 1, 26)
-        result = chr(65 + n) + result
-    return result
-
-
-def get(row, headers, name):
-    i = headers.index(name)
-    return str(row[i]) if i < len(row) else ''
-
-
-def identities(row, headers):
-    keys = set()
-    url = get(row, headers, '岗位链接')
-    if url:
-        try:
-            keys.add(('url', canonical_url(url)))
-        except ValueError:
-            pass
-    fields = [get(row, headers, x) for x in ['公司', '岗位名称', '城市']]
-    if all(fields):
-        keys.add(('fingerprint', fingerprint(*fields)))
-    if META[0] in headers:
-        source = get(row, headers, META[0])
-        if source:
-            keys.add(('source', source))
-    return keys
 
 
 def job_values(job, now):
@@ -66,170 +34,88 @@ def job_values(job, now):
     }
 
 
-def validate_headers(headers):
-    if len(headers) != len(set(headers)) or any(not h for h in headers):
-        raise ValueError('Blank or duplicate headers; refusing writes')
-    missing = set(HEADERS) - set(headers)
-    if missing:
-        raise ValueError('Missing required headers: ' + ', '.join(sorted(missing)))
+
+def envelope(payload, secret, timestamp=None, request_id=None):
+    if not re.fullmatch(r'[\x20-\x7E]{32,}', secret):
+        raise ValueError('Shared secret must be at least 32 ASCII characters')
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()
+    body = base64.b64encode(raw).decode('ascii')
+    stamp = int(time.time()) if timestamp is None else timestamp
+    nonce = str(uuid.uuid4()) if request_id is None else request_id
+    message = f'v1\n{stamp}\n{nonce}\n{body}'
+    signature = hmac.new(secret.encode(), message.encode(), hashlib.sha256).hexdigest()
+    result = {'version': 1, 'timestamp': stamp, 'request_id': nonce, 'payload_b64': body, 'signature': signature}
+    encoded = json.dumps(result, separators=(',', ':'))
+    if len(encoded.encode()) > 1500000:
+        raise ValueError('Batch too large; no requests sent')
+    return encoded
 
 
-def plan(rows, jobs, now, observed_keys=None, successful_sources=None):
-    if not rows:
-        raise ValueError('Target worksheet must already contain its headers')
-    headers = rows[0]
-    validate_headers(headers)
-    if any(x not in headers for x in META):
-        raise ValueError('Automation columns missing; initialize them explicitly first')
-    index = {}
-    for n, row in enumerate(rows[1:], 2):
-        for key in identities(row, headers):
-            index.setdefault(key, set()).add(n)
-    updates, appends = [], []
-    skipped = 0
-    seen = set()
-    for job in jobs:
-        keys = {('source', job.key), ('url', canonical_url(job.url)), ('fingerprint', fingerprint(job.company, job.title, job.city))}
-        if keys & seen:
-            skipped += 1
-            continue
-        seen |= keys
-        matches = set().union(*(index.get(key, set()) for key in keys))
-        values = job_values(job, now)
-        if matches:
-            if len(matches) != 1:
-                skipped += 1
-                continue
-            n = next(iter(matches))
-            old = rows[n - 1]
-            # Manual rows are not adopted, even if their URL matches exactly.
-            if get(old, headers, META[0]) != job.key:
-                skipped += 1
-                continue
-            try:
-                snapshot = json.loads(get(old, headers, META[1]))
-                if not isinstance(snapshot, dict) or any(k not in HEADERS or k == '申请状态' or not isinstance(v, str) for k, v in snapshot.items()):
-                    raise ValueError('Invalid snapshot')
-            except (ValueError, TypeError):
-                skipped += 1
-                continue
-            next_snapshot = {}
-            for name, previous in snapshot.items():
-                current = get(old, headers, name)
-                if current != previous:
-                    continue  # Human edit: permanently relinquish this field.
-                value = values.get(name, previous)
-                if name in {'发现日期', '岗位ID'}:
-                    value = previous
-                if name == '最后核实' and job.status == '待核实':
-                    value = previous
-                next_snapshot[name] = value
-                if current != value:
-                    updates.append({'range': f"'{TAB}'!{col(headers.index(name)+1)}{n}", 'values': [[value]]})
-            encoded = json.dumps(next_snapshot, ensure_ascii=False, sort_keys=True)
-            if encoded != get(old, headers, META[1]):
-                updates.append({'range': f"'{TAB}'!{col(headers.index(META[1])+1)}{n}", 'values': [[encoded]]})
-        else:
-            record = values | {META[0]: job.key, META[1]: json.dumps(values, ensure_ascii=False, sort_keys=True)}
-            appends.append([record.get(h, '') for h in headers])
-    # Check previously discovered jobs even when they disappear from the feed.
-    # Absence can mean a location change or unpublished record, not confirmed closure.
-    for n, row in enumerate(rows[1:], 2):
-        source_key = get(row, headers, META[0])
-        if (observed_keys is None or not successful_sources or not source_key or
-                source_key in observed_keys or source_key.rsplit(':', 1)[0] not in successful_sources):
-            continue
-        try:
-            snapshot = json.loads(get(row, headers, META[1]))
-            if not isinstance(snapshot, dict):
-                continue
-        except (ValueError, TypeError):
-            continue
-        name = '招聘状态'
-        if name not in snapshot:
-            continue
-        current = get(row, headers, name)
-        if current != snapshot[name]:
-            del snapshot[name]
-        else:
-            pending = '待核实（本次官方列表未出现；未确认关闭）'
-            if current == pending:
-                continue
-            updates.append({'range': f"'{TAB}'!{col(headers.index(name)+1)}{n}", 'values': [[pending]]})
-            snapshot[name] = pending
-        updates.append({'range': f"'{TAB}'!{col(headers.index(META[1])+1)}{n}", 'values': [[json.dumps(snapshot, ensure_ascii=False, sort_keys=True)]]})
-    return {'updates': updates, 'appends': appends, 'skipped': skipped}
+class WebAppError(RuntimeError):
+    """Only a safe fixed code may be surfaced in logs."""
 
 
 class Sheets:
     def __init__(self):
-        # No credential values or API response bodies are logged.
-        info = json.loads(os.environ['GOOGLE_SERVICE_ACCOUNT_JSON'])
-        credentials = service_account.Credentials.from_service_account_info(info, scopes=['https://www.googleapis.com/auth/spreadsheets'])
-        self.client = google.auth.transport.requests.AuthorizedSession(credentials)
-        self.base = f'https://sheets.googleapis.com/v4/spreadsheets/{SHEET_ID}'
+        self.url = os.environ['APPS_SCRIPT_WEB_APP_URL']
+        if not re.fullmatch(r'https://script\.google\.com/macros/s/[A-Za-z0-9_-]+/exec', self.url):
+            raise ValueError('Use the deployed HTTPS /exec URL without query parameters')
+        self.secret = os.environ['APPS_SCRIPT_SHARED_SECRET']
+        if not re.fullmatch(r'[\x20-\x7E]{32,}', self.secret):
+            raise ValueError('Shared secret must be at least 32 ASCII characters')
+        self.client = requests.Session()
 
-    def request(self, method, suffix, **kwargs):
-        for attempt in range(4):
+    def call(self, payload):
+        # Retries reuse exactly the same signed ID: server persists a nonce before
+        # processing and caches the result. Ambiguous writes are never re-executed.
+        body = envelope(payload, self.secret)
+        for attempt in range(3):
             try:
-                response = self.client.request(method, self.base + suffix, timeout=(10, 45), **kwargs)
-            except OSError:
-                if method != 'GET' or attempt == 3:
-                    raise
-                time.sleep(2 ** attempt)
-                continue
-            if method != 'GET' or response.status_code not in {429, 500, 502, 503, 504} or attempt == 3:
-                break
-            delay = 2 ** attempt
-            retry_after = response.headers.get('Retry-After', '')
-            if retry_after:
+                response = self.client.post(self.url, data=body.encode(),
+                    headers={'Content-Type': 'text/plain; charset=utf-8'},
+                    timeout=(10, 90), allow_redirects=False)
+                if response.status_code in {302, 303}:
+                    target = response.headers.get('Location', '')
+                    parsed = urlsplit(target)
+                    if (parsed.scheme != 'https' or parsed.hostname != 'script.googleusercontent.com'
+                            or parsed.username or parsed.password or parsed.port not in (None, 443)):
+                        raise WebAppError('unsafe_redirect')
+                    # ContentService redirects are GET-only; never forward the signed
+                    # POST body or secret to a redirect destination.
+                    response = self.client.get(target, timeout=(10, 90), allow_redirects=False)
+                if response.status_code in {429, 500, 502, 503, 504} and attempt < 2:
+                    time.sleep(2 ** attempt)
+                    continue
+                if response.status_code != 200:
+                    raise WebAppError('web_app_http_error')
                 try:
-                    delay = max(delay, float(retry_after))
+                    result = response.json()
                 except ValueError:
-                    try:
-                        delay = max(delay, (parsedate_to_datetime(retry_after) - datetime.now(timezone.utc)).total_seconds())
-                    except (ValueError, TypeError):
-                        pass
-            # Long quota waits should be retried by the next scheduled run.
-            if delay > 60:
-                raise RuntimeError('Sheets read rate-limited; retry on a later run')
-            time.sleep(delay)
-        if not response.ok:
-            # POST append must not be blindly retried after ambiguous failures.
-            raise RuntimeError(f'Sheets {method} failed (HTTP {response.status_code}); rerun after inspection')
-        return response.json()
-
-    def read(self):
-        # FORMULA preserves manually entered formulas for conflict detection.
-        return self.request('GET', f"/values/'{TAB}'", params={'valueRenderOption': 'FORMULA'}) .get('values', [])
-
-    def initialize(self, write=False):
-        rows = self.read()
-        if not rows:
-            raise ValueError('Missing existing target headers')
-        validate_headers(rows[0])
-        missing = [h for h in META if h not in rows[0]]
-        if not missing:
-            return []
-        # Do not write into an existing data column with a blank header.
-        if any(len(r) > len(rows[0]) for r in rows[1:]):
-            raise ValueError('Data exists beyond headers; refusing initialization')
-        if write:
-            if self.read() != rows:
-                raise RuntimeError('Worksheet changed during preflight')
-            start, end = len(rows[0]) + 1, len(rows[0]) + len(missing)
-            self.request('PUT', f"/values/'{TAB}'!{col(start)}1:{col(end)}1", params={'valueInputOption': 'RAW'}, json={'values': [missing]})
-        return missing
+                    raise WebAppError('web_app_non_json') from None
+                if not isinstance(result, dict) or result.get('ok') is not True:
+                    code = result.get('code', '') if isinstance(result, dict) else ''
+                    allowed = {'auth_failed', 'bad_request', 'writes_disabled', 'preview_required',
+                        'preview_expired', 'sheet_changed', 'invalid_batch', 'invalid_headers',
+                        'busy', 'replay_conflict', 'request_in_progress', 'capacity', 'internal_error'}
+                    raise WebAppError(code if code in allowed else 'web_app_rejected')
+                if result.get('request_id') != json.loads(body)['request_id']:
+                    raise WebAppError('response_id_mismatch')
+                return result
+            except requests.RequestException:
+                if attempt == 2:
+                    raise WebAppError('web_app_network_error') from None
+                time.sleep(2 ** attempt)
+        raise WebAppError('web_app_unavailable')
 
     def sync(self, jobs, write=False, observed_keys=None, successful_sources=None):
-        before = self.read()
-        result = plan(before, jobs, datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(), observed_keys, successful_sources)
-        if write:
-            if self.read() != before:
-                raise RuntimeError('Worksheet changed during preflight; no job writes performed')
-            if result['updates']:
-                self.request('POST', '/values:batchUpdate', json={'valueInputOption': 'RAW', 'data': result['updates']})
-            if result['appends']:
-                # INSERT_ROWS preserves existing rows and all other worksheets.
-                self.request('POST', f"/values/'{TAB}'!A:{col(len(before[0]))}:append", params={'valueInputOption': 'RAW', 'insertDataOption': 'INSERT_ROWS'}, json={'values': result['appends']})
-        return {'new_rows': len(result['appends']), 'cell_updates': len(result['updates']), 'skipped': result['skipped'], 'written': write}
+        now = datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
+        batch = {'jobs': [{'source_key': job.key, 'values': job_values(job, now)} for job in jobs],
+                 'observed_keys': sorted(observed_keys or []),
+                 'successful_sources': sorted(successful_sources or []), 'source_failures': []}
+        preview = self.call({'operation': 'preview', 'batch': batch})
+        if not write:
+            return {k: preview[k] for k in ('new_rows', 'cell_updates', 'metadata_updates', 'skipped', 'written')}
+        if os.environ.get('ENABLE_SHEETS_WRITE') != 'true':
+            raise WebAppError('writes_disabled')
+        result = self.call({'operation': 'write', 'batch': batch, 'preview_token': preview['preview_token']})
+        return {k: result[k] for k in ('new_rows', 'cell_updates', 'metadata_updates', 'skipped', 'written')}
